@@ -1,17 +1,34 @@
 <html>
 <head>
+</head>
+<body style="border-width:0px;">
+	<nav style="width:100%; padding:1em;"><h3>Tune</h3></nav>
+	<div style="width:100%; height:700px; text-align:center; margin:50px;">
+	    <div style="display:inline-block;">
+		<div id="player" style="width:640px; height:390px;"></div>
+		<br><br>
+		Video Url: <input type="text" id="textbox">
+		<br><br>
+		<input type="submit" value="Submit" onclick="textboxEvent()">
+	    </div>
+	</div>
+	<footer style="width:100%; padding:1em; text-align:center; ">Brandon T. Wood @ 2019</footer>
+</body>
 <script>
-// https://stackoverflow.com/questions/5957916/how-to-handle-youtube-video-events-started-finished-etc-in-uiwebview-ios
-var WS = new WebSocket("ws://localhost:3434/ws");
-var VIDEOTIME = 0;
-var TEXTBOX = document.getElementById("textbox");
+      // https://stackoverflow.com/questions/5957916/how-to-handle-youtube-video-events-started-finished-etc-in-uiwebview-ios
+      var WS = new WebSocket("ws://localhost:3434/ws");
+      WS.onmessage = function (e) {
+		onWebsocketEvent(e.data);
+      }
+      var VIDEOTIME = 0;
+      var TEXTBOX = document.getElementById("textbox");
 
-var tag = document.createElement('script');
-tag.src = "https://www.youtube.com/iframe_api";
-var firstScriptTag = document.getElementsByTagName('script')[0];
-firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      var tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      var firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      var player;
 
-var player;
       function onYouTubeIframeAPIReady() {
         player = new YT.Player('player', {
           height: '390',
@@ -41,11 +58,15 @@ var player;
         }
       }
 
+      function onWebsocketEvent(data){
+	    console.log("Received from websocket::" + data);
+      }
+
       // When you clikc submit, this takes value from text box to change the video.
       function textboxEvent(){
-	console.log(TEXTBOX.value);
-	// Need to figure out how to send either a float32 or a string in struct.
-	websocketEvent("VIDEO", 0);
+	    console.log(TEXTBOX.value);
+	    // Need to figure out how to send either a float32 or a string in struct.
+	    websocketEvent("VIDEO", 0);
       }
 
       // https://stackoverflow.com/questions/10175367/youtube-api-event-on-a-specified-time
@@ -66,18 +87,4 @@ var player;
       }
 
 </script>
-</head>
-<body style="border-width:0px;">
-	<nav style="width:100%; padding:1em;"><h3>Tune</h3></nav>
-	<div style="width:100%; height:700px; text-align:center; margin:50px;">
-	    <div style="display:inline-block;">
-		<div id="player" style="width:640px; height:390px;"></div>
-		<br><br>
-		Video Url: <input type="text" id="textbox">
-		<br><br>
-		<input type="submit" value="Submit" onclick="textboxEvent()">
-	    </div>
-	</div>
-	<footer style="width:100%; padding:1em; text-align:center; ">Brandon T. Wood @ 2019</footer>
-</body>
 </html>
