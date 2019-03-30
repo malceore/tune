@@ -1,0 +1,7 @@
+rm bin/main
+go test -v
+
+set -e
+go build -o bin/main 
+echo "Running..."
+bin/./main
