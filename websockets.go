@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"fmt"
+	//"strings"
 	"github.com/gorilla/websocket"
 )
 
@@ -16,9 +17,10 @@ var VIDEO = ""
 
 // Define our message object
 type Message struct {
-        Event string `json:"event"`
-        Value float32 `json:"value"`
-        //Date string `json:"date"`
+        Event string `json:"Event"`
+        Value float32 `json:"Value"`
+	URL string `json:"URL"`
+        Date int `json:"Date"`
 }
 
 func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
@@ -27,29 +29,40 @@ func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
         if err != nil {
                 fmt.Println(err)
         }
-        defer ws.Close()
+        //defer ws.Close()
         CLIENTS[ws] = true
 	// Read message if there is one.
 	for {
-		var m Message
-		err := ws.ReadJSON(&m)
+		var msg Message
+		err := ws.ReadJSON(&msg)
 		if err != nil {
 			fmt.Println("Error reading json.", err)
 		}
-		fmt.Println(m)
-		// Here we need to decide what if any action to take based on event.
-		//	Most likely broadcasting out to clients changes.
+		fmt.Println("Message received! :: " + msg.URL)
+		/*if(strings.Compare(msg.Event, "PAUSED") == 0){
+			broadcast(msg);
+		}else if(strings.Compare(msg.Event, "PLAYING") == 0){
+			broadcast(msg);
+		}else if(strings.Compare(msg.Event, "BUFFER") == 0){
+			broadcast(msg);
+		}else if(strings.Compare(msg.Event, "VIDEO") == 0){
+			broadcast(msg);
+		}*/
+		// Just gonna remove because without validation code is much simpler, thus better.
+		broadcast(msg, ws);
 	}
-	ws.WriteJSON("{ video:" + VIDEO + ", time:" + TIME + ", state:" + STATE +" }")
+	//ws.WriteJSON("{ video:" + VIDEO + ", time:" + TIME + ", state:" + STATE +" }")
 }
-/*
-func broadcast(msg string){
+
+func broadcast(msg Message, sender *websocket.Conn){
        for client := range CLIENTS {
-                err := client.WriteJSON(msg)
-                if err != nil {
-                       fmt.Printf("error: %v", err)
-                       client.Close()
-                       delete(CLIENTS, client)
-                }
+              if (client != sender){
+                    err := client.WriteJSON(msg)
+                    if err != nil {
+                           fmt.Printf("error: %v", err)
+                           client.Close()
+                           delete(CLIENTS, client)
+                    }
+             }
        }
-}*/
+}

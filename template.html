@@ -1,5 +1,6 @@
 <html>
 <head>
+	<title>Tune v0.2</title>
 </head>
 <body style="border-width:0px;">
 	<nav style="width:100%; padding:1em;"><h3>Tune</h3></nav>
@@ -16,21 +17,18 @@
 </body>
 <script>
       // https://stackoverflow.com/questions/5957916/how-to-handle-youtube-video-events-started-finished-etc-in-uiwebview-ios
-      var WS = new WebSocket("ws://localhost:3434/ws");
-      WS.onmessage = function (e) {
-		onWebsocketEvent(e.data);
-      }
-      var VIDEOTIME = 0;
-      var TEXTBOX = document.getElementById("textbox");
-
+      WS = new WebSocket("ws://" + window.location.hostname + ":3434/ws");
+      WS.onmessage = function (e) {onWebsocketEvent(e.data);}
+      let VIDEOTIME = 0;
+      const TEXTBOX = document.getElementById("textbox");
       var tag = document.createElement('script');
       tag.src = "https://www.youtube.com/iframe_api";
       var firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-      var player;
+      var PLAYER;
 
       function onYouTubeIframeAPIReady() {
-        player = new YT.Player('player', {
+        PLAYER = new YT.Player('player', {
           height: '390',
           width: '640',
           videoId: 'Z_cjiJsVeAs',
@@ -60,28 +58,55 @@
 
       function onWebsocketEvent(data){
 	    console.log("Received from websocket::" + data);
+	    var msg = JSON.parse(data);
+	    if (msg.Event == "PAUSED"){
+		PLAYER.pauseVideo();
+	    }else if (msg.Event == "PLAYING"){
+		PLAYER.playVideo();
+	    }else if (msg.Event == "BUFFER"){
+		PLAYER.seekTo(msg.value, true)
+	    }else if (msg.Event == "VIDEO"){
+		// http://www.youtube.com/v/YsRIMs_-xKM?version=3
+		PLAYER.loadVideoByUrl(msg.URL);
+	    }
       }
 
       // When you clikc submit, this takes value from text box to change the video.
       function textboxEvent(){
-	    console.log(TEXTBOX.value);
-	    // Need to figure out how to send either a float32 or a string in struct.
-	    websocketEvent("VIDEO", 0);
+	    var videoCode=(TEXTBOX.value).split('?')[1].slice(2);
+	    let URL = "http://www.youtube.com/v/" + videoCode + "?version=3";
+	    console.log(URL);
+	    websocketEvent("VIDEO", URL);
+	    PLAYER.loadVideoByUrl(URL);
+	    TEXTBOX.value = "";
       }
 
       // https://stackoverflow.com/questions/10175367/youtube-api-event-on-a-specified-time
       function checkTime(){
-            VIDEOTIME = player.getCurrentTime();
-	    console.log("Current video time : " + VIDEOTIME);
-	    websocketEvent("BUFFER", VIDEOTIME);
+            var newTime = PLAYER.getCurrentTime();
+	    if (VIDEOTIME != newTime){
+                 VIDEOTIME=newTime;
+  	         console.log("Current video time : " + VIDEOTIME);
+	         websocketEvent("BUFFER", VIDEOTIME);
+	    }
       }
 
-      function websocketEvent(event, value){
+      function websocketEvent(event, input){
+	    // hokey code, we check wether it's a float or a string because Golang 
+	    //	    does not have an easy memory safe generic to my understanding.
+	    let value = 0;
+	    let url = "";
+	    if(isNaN(input)){
+		  url = input;
+	    } else {
+		  value = input;
+	    }
 	    console.log("LOG::" + event + " " + value);
 	    var msg = {
-    		event: event,
-    		value: value//,
-    		//date: Date.now()
+    		Event: event,
+    		Value: value,
+		URL: url,
+    		Date: Date.now()
   	    };
 	    WS.send(JSON.stringify(msg));
       }
