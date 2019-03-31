@@ -4,7 +4,7 @@
 </head>
 <body style="border-width:0px;">
 	<nav style="width:100%; padding:1em;"><h3>Tune</h3></nav>
-	<div style="width:100%; height:700px; text-align:center; margin:50px;">
+	<div id="display" style="width:100%; height:700px; text-align:center; margin:50px;">
 	    <div style="display:inline-block;">
 		<div id="player" style="width:640px; height:390px;"></div>
 		<br><br>
@@ -17,8 +17,14 @@
 </body>
 <script>
       // https://stackoverflow.com/questions/5957916/how-to-handle-youtube-video-events-started-finished-etc-in-uiwebview-ios
-      WS = new WebSocket("ws://" + window.location.hostname + ":3434/ws");
-      WS.onmessage = function (e) {onWebsocketEvent(e.data);}
+      var WS;
+      const updateMsg = {
+                Event: "UPDATE",
+                Value: 0,
+                URL: "",
+                Date: Date.now()
+      };
+
       let VIDEOTIME = 0;
       const TEXTBOX = document.getElementById("textbox");
       var tag = document.createElement('script');
@@ -31,7 +37,7 @@
         PLAYER = new YT.Player('player', {
           height: '390',
           width: '640',
-          videoId: 'Z_cjiJsVeAs',
+          videoId: 'dQw4w9WgXcQ',
           events: {
             'onReady': onPlayerReady,
             'onStateChange': onPlayerStateChange
@@ -39,35 +45,44 @@
         });
       }
 
+      // After everything is loaded we configure the interval, websocket and such here.
       function onPlayerReady(event) {
-        event.target.playVideo();
+        WS = new WebSocket("ws://" + window.location.hostname + ":3434/ws");
+        console.log("Connecting to server..");
+        WS.onmessage = function (e) {onWebsocketEvent(e.data);}
+	//setInterval( function(){ WS.send(JSON.stringify(updateMsg)) }, 1500);
+	document.getElementById('display').onclick = updateTimeChanges;
       }
 
       function onPlayerStateChange(event) {
-	//console.log(" Event Data:" + event.data);
         if (event.data == YT.PlayerState.PLAYING) {
 	    websocketEvent("PLAYING", 0);
-	    //checkTime();
         } else if (event.data == YT.PlayerState.PAUSED) {
 	    websocketEvent("PAUSED", 0);
-	    //checkTime();
-	}else if (event.data == YT.PlayerState.BUFFERING) {
-	    checkTime();
         }
       }
+
 
       function onWebsocketEvent(data){
 	    console.log("Received from websocket::" + data);
 	    var msg = JSON.parse(data);
 	    if (msg.Event == "PAUSED"){
 		PLAYER.pauseVideo();
+	    }else if (msg.Event == "HELLO"){
+		PLAYER.loadVideoByUrl(msg.URL);
+		PLAYER.seekTo(msg.value);
+                PLAYER.playVideo();
 	    }else if (msg.Event == "PLAYING"){
 		PLAYER.playVideo();
 	    }else if (msg.Event == "BUFFER"){
-		PLAYER.seekTo(msg.value, true)
+		PLAYER.seekTo(msg.Value, true)
 	    }else if (msg.Event == "VIDEO"){
 		// http://www.youtube.com/v/YsRIMs_-xKM?version=3
 		PLAYER.loadVideoByUrl(msg.URL);
+	    }else if (msg.Event == "UPDATE"){
+		// http://www.youtube.com/v/YsRIMs_-xKM?version=3
+		//PLAYER.loadVideoByUrl(msg.URL);
+		checkTimeChanges(msg.Value);
 	    }
       }
 
@@ -81,13 +96,20 @@
 	    TEXTBOX.value = "";
       }
 
-      // https://stackoverflow.com/questions/10175367/youtube-api-event-on-a-specified-time
-      function checkTime(){
+      function updateTimeChanges(){
             var newTime = PLAYER.getCurrentTime();
 	    if (VIDEOTIME != newTime){
-                 VIDEOTIME=newTime;
+                 VIDEOTIME=newTime+1;
   	         console.log("Current video time : " + VIDEOTIME);
 	         websocketEvent("BUFFER", VIDEOTIME);
+	    }
+      }
+
+      function checkTimeChanges(newTime){
+	    if (VIDEOTIME != newTime){
+                 VIDEOTIME=newTime+1;
+  	         console.log("New video time : " + VIDEOTIME);
+                 PLAYER.seekTo(newTime+2, true)
 	    }
       }
 

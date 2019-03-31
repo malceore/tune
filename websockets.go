@@ -3,7 +3,7 @@ package main
 import (
 	"net/http"
 	"fmt"
-	//"strings"
+	"strings"
 	"github.com/gorilla/websocket"
 )
 
@@ -12,8 +12,9 @@ var CLIENTS = make(map[*websocket.Conn]bool)
 var BROADCAST = make(chan Message)
 var UPGRADER = websocket.Upgrader{}
 var STATE = "PAUSED"
-var TIME = "0"
-var VIDEO = ""
+var TIME = float32(0)
+//		Rick Ashely Classic..
+var VIDEO = "http://www.youtube.com/v/dQw4w9WgXcQ?version=3Message"
 
 // Define our message object
 type Message struct {
@@ -25,33 +26,41 @@ type Message struct {
 
 func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
 	// convert to WS, store in client global.
-        ws, err := UPGRADER.Upgrade(w, r, nil)
+        ws, err := UPGRADER.Upgrade(w, r, w.Header())
         if err != nil {
                 fmt.Println(err)
         }
-        //defer ws.Close()
-        CLIENTS[ws] = true
-	// Read message if there is one.
-	for {
-		var msg Message
-		err := ws.ReadJSON(&msg)
-		if err != nil {
-			fmt.Println("Error reading json.", err)
-		}
-		fmt.Println("Message received! :: " + msg.URL)
-		/*if(strings.Compare(msg.Event, "PAUSED") == 0){
-			broadcast(msg);
-		}else if(strings.Compare(msg.Event, "PLAYING") == 0){
-			broadcast(msg);
-		}else if(strings.Compare(msg.Event, "BUFFER") == 0){
-			broadcast(msg);
-		}else if(strings.Compare(msg.Event, "VIDEO") == 0){
-			broadcast(msg);
-		}*/
-		// Just gonna remove because without validation code is much simpler, thus better.
-		broadcast(msg, ws);
+	// Gonna check if they are in the list, if not, say hello and register them.
+	if (!CLIENTS[ws]){
+		defer ws.Close()
+		CLIENTS[ws] = true
+		fmt.Println("Adding new connection!");
+		//fmt.Print("DEBUG:: HELLO " + string(TIME) + " " + VIDEO)
+		ws.WriteJSON(Message{"HELLO",float32(TIME),VIDEO,0})
 	}
-	//ws.WriteJSON("{ video:" + VIDEO + ", time:" + TIME + ", state:" + STATE +" }")
+		for {
+			var msg Message
+			err := ws.ReadJSON(&msg)
+			if err != nil {
+				fmt.Println("Error reading json.", err)
+			}
+			//fmt.Println("Message received! :: " + msg.Event)
+			if(strings.Compare(msg.Event, "PLAYING") == 0 || strings.Compare(msg.Event, "PAUSED") == 0){
+				STATE = msg.Event
+				broadcast(msg, ws);
+			}else if(strings.Compare(msg.Event, "VIDEO") == 0){
+				fmt.Println("Video Changing to :: " + msg.URL)
+				VIDEO = msg.URL
+				TIME = 0
+				broadcast(msg, ws);
+			}else if(strings.Compare(msg.Event, "BUFFER") == 0){
+				//fmt.Println("Time Changing to :: " + string(msg.Value))
+				TIME = msg.Value
+				broadcast(msg, ws);
+			}else if(strings.Compare(msg.Event, "UPDATE") == 0){
+				ws.WriteJSON(Message{"UPDATE",float32(TIME),VIDEO,0})
+			}
+		}
 }
 
 func broadcast(msg Message, sender *websocket.Conn){
@@ -65,4 +74,8 @@ func broadcast(msg Message, sender *websocket.Conn){
                     }
              }
        }
+}
+
+func keepTime(){
+	TIME++
 }

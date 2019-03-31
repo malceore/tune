@@ -19,7 +19,7 @@ func ClientHandler(w http.ResponseWriter, r *http.Request) {
      // If it does then we need to return the contents of it's file sin a javascript array, injected into the index.html page.
     bytes, err := ioutil.ReadFile("template.html")
     if err != nil {
-        fmt.Println(err)
+	fmt.Println("Could not open templates.html :: ", err)
     }
     var templatebody = string(bytes)
     w.WriteHeader(http.StatusOK)
