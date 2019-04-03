@@ -18,14 +18,8 @@
 <script>
       // https://stackoverflow.com/questions/5957916/how-to-handle-youtube-video-events-started-finished-etc-in-uiwebview-ios
       var WS;
-      const updateMsg = {
-                Event: "UPDATE",
-                Value: 0,
-                URL: "",
-                Date: Date.now()
-      };
-
-      let VIDEOTIME = 0;
+      let VIDEOTIME = -1;
+      let STATE = "PLAYING";
       const TEXTBOX = document.getElementById("textbox");
       var tag = document.createElement('script');
       tag.src = "https://www.youtube.com/iframe_api";
@@ -38,6 +32,7 @@
           height: '390',
           width: '640',
           videoId: 'dQw4w9WgXcQ',
+          playerVars: {rel: 0, showinfo: 0, ecver: 2},
           events: {
             'onReady': onPlayerReady,
             'onStateChange': onPlayerStateChange
@@ -50,8 +45,7 @@
         WS = new WebSocket("ws://" + window.location.hostname + ":3434/ws");
         console.log("Connecting to server..");
         WS.onmessage = function (e) {onWebsocketEvent(e.data);}
-	//setInterval( function(){ WS.send(JSON.stringify(updateMsg)) }, 1500);
-	document.getElementById('display').onclick = updateTimeChanges;
+	setInterval(updateTimeChanges, 1000);
       }
 
       function onPlayerStateChange(event) {
@@ -59,30 +53,40 @@
 	    websocketEvent("PLAYING", 0);
         } else if (event.data == YT.PlayerState.PAUSED) {
 	    websocketEvent("PAUSED", 0);
+        } else if (event.data == YT.PlayerState.STOPPED) {
+	    //websocketEvent("", 0);
+	    console.log("VIDEO STOPPED");
+	    STATE="STOPPED";
         }
       }
-
 
       function onWebsocketEvent(data){
 	    console.log("Received from websocket::" + data);
 	    var msg = JSON.parse(data);
 	    if (msg.Event == "PAUSED"){
 		PLAYER.pauseVideo();
+		STATE="PAUSE";
+
 	    }else if (msg.Event == "HELLO"){
 		PLAYER.loadVideoByUrl(msg.URL);
-		PLAYER.seekTo(msg.value);
-                PLAYER.playVideo();
+		//sleep(500);
+                //PLAYER.playVideo();
+		//PLAYER.seekTo(msg.value+1, true);
+		STATE="PLAYING";
+
 	    }else if (msg.Event == "PLAYING"){
 		PLAYER.playVideo();
-	    }else if (msg.Event == "BUFFER"){
-		PLAYER.seekTo(msg.Value, true)
-	    }else if (msg.Event == "VIDEO"){
-		// http://www.youtube.com/v/YsRIMs_-xKM?version=3
-		PLAYER.loadVideoByUrl(msg.URL);
+		STATE="PLAYING";
+
 	    }else if (msg.Event == "UPDATE"){
-		// http://www.youtube.com/v/YsRIMs_-xKM?version=3
-		//PLAYER.loadVideoByUrl(msg.URL);
-		checkTimeChanges(msg.Value);
+		var duration = PLAYER.getDuration();
+		PLAYER.seekTo(msg.Value, true);
+
+	    }else if (msg.Event == "VIDEO"){
+		PLAYER.loadVideoByUrl(msg.URL);
+
+	    }else if (msg.Event == "SYNC"){
+		pushTimeChanges(PLAYER.getCurrentTime());
 	    }
       }
 
@@ -90,27 +94,26 @@
       function textboxEvent(){
 	    var videoCode=(TEXTBOX.value).split('?')[1].slice(2);
 	    let URL = "http://www.youtube.com/v/" + videoCode + "?version=3";
-	    console.log(URL);
+	    //console.log(URL);
 	    websocketEvent("VIDEO", URL);
 	    PLAYER.loadVideoByUrl(URL);
 	    TEXTBOX.value = "";
       }
 
       function updateTimeChanges(){
-            var newTime = PLAYER.getCurrentTime();
-	    if (VIDEOTIME != newTime){
-                 VIDEOTIME=newTime+1;
-  	         console.log("Current video time : " + VIDEOTIME);
-	         websocketEvent("BUFFER", VIDEOTIME);
+	    if(STATE=="PLAYING"){
+		    VIDEOTIME++;
+	            var newTime = PLAYER.getCurrentTime();
+		    if (Math.floor(VIDEOTIME) < Math.floor(newTime-1) || Math.floor(VIDEOTIME) > Math.floor(newTime+1) ){
+	 	         console.log("Seek must have occured! : " + Math.floor(VIDEOTIME) + "!=" + Math.floor(newTime));
+			 pushTimeChanges(newTime);
+		    }
 	    }
       }
 
-      function checkTimeChanges(newTime){
-	    if (VIDEOTIME != newTime){
-                 VIDEOTIME=newTime+1;
-  	         console.log("New video time : " + VIDEOTIME);
-                 PLAYER.seekTo(newTime+2, true)
-	    }
+      function pushTimeChanges(newTime){
+            VIDEOTIME=newTime+1;
+	    websocketEvent("UPDATE", VIDEOTIME);
       }
 
       function websocketEvent(event, input){
@@ -123,7 +126,7 @@
 	    } else {
 		  value = input;
 	    }
-	    console.log("LOG::" + event + " " + value);
+	    //console.log("LOG::" + event + " " + value);
 	    var msg = {
     		Event: event,
     		Value: value,
@@ -132,6 +135,16 @@
   	    };
 	    WS.send(JSON.stringify(msg));
       }
+
+// https://www.sitepoint.com/delay-sleep-pause-wait/
+function sleep(milliseconds) {
+  var start = new Date().getTime();
+  for (var i = 0; i < 1e7; i++) {
+    if ((new Date().getTime() - start) > milliseconds){
+      break;
+    }
+  }
+}
 
 </script>
 </html>
