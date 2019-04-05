@@ -14,6 +14,7 @@ var UPGRADER = websocket.Upgrader{}
 var STATE = "PAUSED"
 var TIME = float32(0)
 var VIDEO = "http://www.youtube.com/v/dQw4w9WgXcQ?version=3Message"
+var QUEUE []string
 
 // Define our message object
 type Message struct {
@@ -62,9 +63,23 @@ func WebsocketHandler(w http.ResponseWriter, r *http.Request) {
 			//fmt.Println("Time Changing to :: " + string(msg.Value))
 			TIME = msg.Value
 			broadcast(msg, ws)
-		}/*else if(strings.Compare(msg.Event, "UPDATE") == 0){
-			ws.WriteJSON(Message{"UPDATE",float32(TIME),VIDEO,0})
-		}*/
+		}else if(strings.Compare(msg.Event, "QUEUE") == 0){
+			//ws.WriteJSON(Message{"UPDATE",float32(TIME),VIDEO,0})
+			QUEUE = append(QUEUE, msg.URL)
+			//fmt.Println(QUEUE)
+		}else if(strings.Compare(msg.Event, "STOPPED") == 0){
+			//ws.WriteJSON(Message{"UPDATE",float32(TIME),VIDEO,0})
+			fmt.Println("STOP RECIEVED")
+			if (len(QUEUE) > 0){
+				fmt.Println(QUEUE)
+				VIDEO=QUEUE[0]
+				TIME=0
+				broadcast(Message{"VIDEO", 0, QUEUE[0], 0}, nil)
+				QUEUE = QUEUE[1:]
+			}else{
+				fmt.Println("Queue Empty..")
+			}
+		}
 	}
 }
 

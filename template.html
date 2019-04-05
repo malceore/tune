@@ -5,12 +5,12 @@
 <body style="border-width:0px;">
 	<nav style="width:100%; padding:1em;"><h3>Tune</h3></nav>
 	<div id="display" style="width:100%; height:700px; text-align:center; margin:50px;">
-	    <div style="display:inline-block;">
+	    <div style="display:inline-block; padding:1em;">
 		<div id="player" style="width:640px; height:390px;"></div>
 		<br><br>
 		Video Url: <input type="text" id="textbox">
-		<br><br>
-		<input type="submit" value="Submit" onclick="textboxEvent()">
+		<input type="submit" value="Play" onclick="textboxPlay()">
+		<input type="submit" value="Queue" onclick="textboxQueue()">
 	    </div>
 	</div>
 	<footer style="width:100%; padding:1em; text-align:center; ">Brandon T. Wood @ 2019</footer>
@@ -19,7 +19,7 @@
       // https://stackoverflow.com/questions/5957916/how-to-handle-youtube-video-events-started-finished-etc-in-uiwebview-ios
       var WS;
       let VIDEOTIME = -1;
-      let STATE = "PLAYING";
+      let STATE = "PAUSED";
       const TEXTBOX = document.getElementById("textbox");
       var tag = document.createElement('script');
       tag.src = "https://www.youtube.com/iframe_api";
@@ -53,9 +53,8 @@
 	    websocketEvent("PLAYING", 0);
         } else if (event.data == YT.PlayerState.PAUSED) {
 	    websocketEvent("PAUSED", 0);
-        } else if (event.data == YT.PlayerState.STOPPED) {
-	    //websocketEvent("", 0);
-	    console.log("VIDEO STOPPED");
+        } else if (event.data == YT.PlayerState.ENDED) {
+	    websocketEvent("STOPPED", 0);
 	    STATE="STOPPED";
         }
       }
@@ -69,9 +68,9 @@
 
 	    }else if (msg.Event == "HELLO"){
 		PLAYER.loadVideoByUrl(msg.URL);
-		//sleep(500);
-                //PLAYER.playVideo();
-		//PLAYER.seekTo(msg.value+1, true);
+                PLAYER.playVideo();
+		let duration = PLAYER.getDuration();
+		PLAYER.seekTo(msg.value+1, true);
 		STATE="PLAYING";
 
 	    }else if (msg.Event == "PLAYING"){
@@ -83,7 +82,10 @@
 		PLAYER.seekTo(msg.Value, true);
 
 	    }else if (msg.Event == "VIDEO"){
+		console.log("VIDEO RECEIVED!");
 		PLAYER.loadVideoByUrl(msg.URL);
+		PLAYER.playVideo();
+		STATE="PLAYING";
 
 	    }else if (msg.Event == "SYNC"){
 		pushTimeChanges(PLAYER.getCurrentTime());
@@ -91,12 +93,20 @@
       }
 
       // When you clikc submit, this takes value from text box to change the video.
-      function textboxEvent(){
+      function textboxPlay(){
 	    var videoCode=(TEXTBOX.value).split('?')[1].slice(2);
 	    let URL = "http://www.youtube.com/v/" + videoCode + "?version=3";
 	    //console.log(URL);
 	    websocketEvent("VIDEO", URL);
 	    PLAYER.loadVideoByUrl(URL);
+	    TEXTBOX.value = "";
+      }
+
+      // When you clikc submit, this takes value from text box to change the video.
+      function textboxQueue(){
+	    var videoCode=(TEXTBOX.value).split('?')[1].slice(2);
+	    let URL = "http://www.youtube.com/v/" + videoCode + "?version=3";
+	    websocketEvent("QUEUE", URL);
 	    TEXTBOX.value = "";
       }
 
@@ -135,16 +145,6 @@
   	    };
 	    WS.send(JSON.stringify(msg));
       }
-
-// https://www.sitepoint.com/delay-sleep-pause-wait/
-function sleep(milliseconds) {
-  var start = new Date().getTime();
-  for (var i = 0; i < 1e7; i++) {
-    if ((new Date().getTime() - start) > milliseconds){
-      break;
-    }
-  }
-}
 
 </script>
 </html>
