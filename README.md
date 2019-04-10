@@ -2,7 +2,7 @@
 
 Tune is a simple Golang server that syncs video playback between clients using Websockets.
 
-![Alt text](relative/screenshot.png?raw=true "screenshot")
+![Alt text](https://github.com/malceore/tune/blob/master/screenshot.png?raw=true "screenshot")
 
 ## Getting Started
 
